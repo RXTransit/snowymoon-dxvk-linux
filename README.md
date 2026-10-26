@@ -13,7 +13,7 @@ Tested on:
 - Steam
 - Proton 10.0 (copied into a custom compatibility tool)
 - Euro Truck Simulator 2
-- TruckersMP
+- TruckersMP (Windows version via Proton, Not their Proton Fork)
 
 ## Contents
 
