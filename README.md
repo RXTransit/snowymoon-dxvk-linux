@@ -1,5 +1,8 @@
 # Snowymoon DXVK for Linux / Proton
 
+This Project's Idea was from u/ATAC-Helicopter on Reddit 
+and from this (Reddit post|https://www.reddit.com/r/EuroTruck2/comments/1wrgw7n/comment/19rovhfeo5phf/?context=1&screen_view_count=2)
+Had a bit of help from ChatGPT too
 Custom DXVK build patched for Snowymoon Lighting Improvements in
 Euro Truck Simulator 2 (ETS2), running on Linux through Steam Proton.
 
