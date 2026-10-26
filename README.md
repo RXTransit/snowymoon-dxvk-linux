@@ -31,6 +31,9 @@ This was needed for the Snowymoon compatibility build.
 On Arch Linux, install the tools and Windows cross-compiler required
 by your DXVK version. Package names and dependencies may change over time.
 
+```sudo pacman -S --needed \
+  git python meson ninja glslang \
+  mingw-w64-gcc```
 ## Build
 
 From this directory:
