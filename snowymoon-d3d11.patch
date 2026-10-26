@@ -1,0 +1,58 @@
+From 62d75399e4607af2b9c0070ee36dbf13ef805d44 Mon Sep 17 00:00:00 2001
+From: Michael <michael.rex.scott@gmail.com>
+Date: Mon, 26 Oct 2026 23:57:48 +0800
+Subject: [PATCH] Patch D3D11 view casts for Snowymoon compatibility
+
+---
+ src/d3d11/d3d11_context.cpp | 28 +++++++++++++++++++++-------
+ 1 file changed, 21 insertions(+), 7 deletions(-)
+
+diff --git a/src/d3d11/d3d11_context.cpp b/src/d3d11/d3d11_context.cpp
+index 997d3c6..0249dcc 100644
+--- a/src/d3d11/d3d11_context.cpp
++++ b/src/d3d11/d3d11_context.cpp
+@@ -175,9 +175,15 @@ namespace dxvk {
+ 
+     // ID3D11View has no methods to query the exact type of
+     // the view, so we'll have to check each possible class
+-    auto dsv = dynamic_cast<D3D11DepthStencilView*>(pResourceView);
+-    auto rtv = dynamic_cast<D3D11RenderTargetView*>(pResourceView);
+-    auto uav = dynamic_cast<D3D11UnorderedAccessView*>(pResourceView);
++    Com<ID3D11DepthStencilView> dsvIface;
++ pResourceView->QueryInterface(IID_PPV_ARGS(&dsvIface));
++ auto dsv = static_cast<D3D11DepthStencilView*>(dsvIface.ptr());
++    Com<ID3D11RenderTargetView> rtvIface;
++ pResourceView->QueryInterface(IID_PPV_ARGS(&rtvIface));
++ auto rtv = static_cast<D3D11RenderTargetView*>(rtvIface.ptr());
++    Com<ID3D11UnorderedAccessView> uavIface;
++ pResourceView->QueryInterface(IID_PPV_ARGS(&uavIface));
++ auto uav = static_cast<D3D11UnorderedAccessView*>(uavIface.ptr());
+ 
+     Rc<DxvkImageView> view;
+     if (dsv) view = dsv->GetImageView();
+@@ -685,10 +691,18 @@ namespace dxvk {
+ 
+     // ID3D11View has no methods to query the exact type of
+     // the view, so we'll have to check each possible class
+-    auto dsv = dynamic_cast<D3D11DepthStencilView*>(pView);
+-    auto rtv = dynamic_cast<D3D11RenderTargetView*>(pView);
+-    auto uav = dynamic_cast<D3D11UnorderedAccessView*>(pView);
+-    auto vov = dynamic_cast<D3D11VideoProcessorOutputView*>(pView);
++    Com<ID3D11DepthStencilView> dsvIface;
++ pView->QueryInterface(IID_PPV_ARGS(&dsvIface));
++ auto dsv = static_cast<D3D11DepthStencilView*>(dsvIface.ptr());
++    Com<ID3D11RenderTargetView> rtvIface;
++ pView->QueryInterface(IID_PPV_ARGS(&rtvIface));
++ auto rtv = static_cast<D3D11RenderTargetView*>(rtvIface.ptr());
++    Com<ID3D11UnorderedAccessView> uavIface;
++ pView->QueryInterface(IID_PPV_ARGS(&uavIface));
++ auto uav = static_cast<D3D11UnorderedAccessView*>(uavIface.ptr());
++    Com<ID3D11VideoProcessorOutputView> vovIface;
++ pView->QueryInterface(IID_PPV_ARGS(&vovIface));
++ auto vov = static_cast<D3D11VideoProcessorOutputView*>(vovIface.ptr());
+ 
+     // Retrieve underlying resource view
+     Rc<DxvkBufferView> bufView;
+-- 
+2.56.0
+
