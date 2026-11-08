@@ -1,0 +1,19 @@
+"""Game fix for Assetto Corsa"""
+import os
+
+from protonfixes import util
+
+
+def early() -> None:
+    os.environ['PROTON_DLL_COPY'] = '*'
+
+
+def main() -> None:
+    """Fixes default launcher and ACM."""
+    util.protontricks('dotnet48')
+    # Fixes Content Manager (black windows)
+    util.protontricks('d3dx11_43')
+    util.protontricks('d3dcompiler_47')
+    util.winedll_override('dwrite', util.OverrideOrder.NATIVE_BUILTIN)
+    util.protontricks('win10')
+    util.set_environment('PULSE_LATENCY_MSEC', '60')

@@ -1,0 +1,8 @@
+{
+	"version": 2,
+	"type": "pyroveil",
+	"matches": [
+		{ "opStringSearch": "10ebb778341", "action": { "glsl-roundtrip": true } }
+	],
+	"roundtripCache": "cache"
+}

@@ -1,0 +1,8 @@
+"""Ship Graveyard Simulator Prologue"""
+
+from protonfixes import util
+
+
+def main() -> None:
+    """Needs builtin vulkan-1"""
+    util.winedll_override('vulkan-1', util.OverrideOrder.BUILTIN)

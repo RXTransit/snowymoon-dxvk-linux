@@ -1,0 +1,2278 @@
+// Fixes applied to Xalia's main.gudl for Proton. Update these in xalia-fixups.gudl.
+
+if (class_name == "BmLauncher.FormControls") {
+    supported: not child_matches(not supported);
+}
+/* Default UI description, language subject to change as it develops */
+
+// Control configuration
+root {
+    repeat_initial_delay: 500;
+    repeat_delay: 100;
+    deadzone: 0.2;
+    panels_always_on: true;
+
+    action_on_left_stick: radial_deadzone(repeat_action(
+        menu_move_action or
+        list_move_action or
+        adjust_current_view_action or
+        target_move,
+        repeat_initial_delay, repeat_delay), deadzone);
+    action_on_dpad_left: repeat_action(
+        menu_left_action or
+        list_left_action or
+        adjust_current_view_left_action or
+        ascend_action or
+        target_move_left,
+        repeat_initial_delay, repeat_delay);
+    action_on_dpad_down: repeat_action(
+        menu_down_action or
+        list_down_action or
+        adjust_current_view_down_action or
+        ascend_action or
+        target_move_down,
+        repeat_initial_delay, repeat_delay);
+    action_on_dpad_up: repeat_action(
+        menu_up_action or
+        list_up_action or
+        adjust_current_view_up_action or
+        ascend_action or
+        target_move_up,
+        repeat_initial_delay, repeat_delay);
+    action_on_dpad_right: repeat_action(
+        menu_right_action or
+        list_right_action or
+        adjust_current_view_right_action or
+        ascend_action or
+        target_move_right,
+        repeat_initial_delay, repeat_delay);
+    action_on_A: menu_select_action or
+        list_primary_action or
+        (target_primary_action + exit_panel_action) or
+        target_primary_action or
+        (targeted_element.send_click + exit_panel_action) or
+        targeted_element.send_click or
+        ascend_action;
+    action_on_B: menu_back_action or
+        list_close_action or
+        ascend_action or
+        exit_panel_action or
+        cancel_action or
+        (targeted_element and send_key.esc);
+    action_on_X: list_secondary_action or
+        target_secondary_action;
+    action_on_Y: list_context_menu_action or
+        target_context_menu_action or
+        targeted_element.send_right_click;
+    action_on_start: menu_close_action or
+        ascend_action or
+        menu_open_action or
+        confirm_action or
+        (targeted_element and send_key.enter);
+    action_on_back: ascend_action or
+        repeat_action(target_next, repeat_initial_delay, repeat_delay);
+    action_on_right_stick: radial_deadzone(
+        target_scroll_view_action or
+        target_adjust_value_action or
+        scroll_current_view_action or
+        scroll_targeted_view_action or
+        adjust_current_view_action,
+        deadzone);
+    action_on_LB: tab_left_action;
+    action_on_RB: tab_right_action;
+}
+
+// Application-specific behaviors:
+
+// APPLICATION: Atelier Ryza launcher
+window (class_name == "KOEI_RYZALAUNCHER_WINDOW") {
+    // Buttons malfunction if the mouse isn't hovering on the correct one
+    manual_buttons: true;
+}
+
+button (interactable and parent.parent.class_name == "KOEI_RYZALAUNCHER_WINDOW" and control_id == 1003) { // Play button
+	confirm_action: send_click;
+	target_priority: 1;
+}
+
+// APPLICATION: Batman Arkham Asylum GOTY launcher
+
+if (class_name == "BmLauncher.ERG_BitmapButton") {
+    role: enum("pushbutton", "push_button", "button");
+    control_type: enum("pushbutton", "push_button", "button");
+    button: true;
+    pushbutton: true;
+    push_button: true;
+    supported: true;
+}
+
+if (class_name == "BmLauncher.ERG_BitmapLabel") {
+    valid_target: false;
+    supported: true;
+}
+
+if (class_name == "BmLauncher.FormControls") {
+    recurse_method: "win32";
+    valid_target: false;
+    supported: not child_matches(not supported) and
+        child_matches(winforms_control_name == "buttonGadgets"); // Filters out Arkham City GOTY launcher, which has broken scrollbars
+}
+
+// APPLICATION: BattlEye installer
+
+if (class_name == "BIS Setup") {
+    supported: not child_matches(not supported);
+}
+
+// APPLICATION: Bethesda Launchers
+dialog (child_matches(image and x == parent.x and y = parent.y and width == parent.width and height == parent.height))
+{
+    is_bethesda_launcher: true;
+    play_button: child_matches(interactable and height != parent.height and
+        (not parent.play_button or y < parent.play_button.y)) or play_button;
+
+    if (sibling_matches(override_bethesda_launcher))
+    {
+        interactable: false;
+    }
+
+    if (sibling_matches(interact_bethesda_launcher))
+    {
+        interactable: true;
+    }
+}
+
+dialog (not active and visible and
+    sibling_matches(active and dialog and is_bethesda_launcher).pid == pid) {
+	// work around focus sometimes incorrectly reverting to main window on Wine when a sub-subwindow closes
+    override_bethesda_launcher: true;
+    interactable: true;
+}
+
+dialog (active and not visible and
+    sibling_matches(not active and dialog and is_bethesda_launcher).pid == pid) {
+	// work around dialogs sometimes staying focused when hidden in Fallout 3 and NV launchers
+    interact_bethesda_launcher: true;
+    interactable: false;
+}
+
+image (interactable and parent.is_bethesda_launcher and
+    width != parent.width and height != parent.height) {
+
+    if (process_name == "SkyrimSELauncher" and control_id == 1010) {
+        // "Data Files" button is still present in Skyrim Special Edition but invisible and does nothing
+        targetable: false;
+    }
+
+    targetable: true;
+    primary_action:
+        parent.disable_window + // Disable the window so it can't do SC_MOVE which causes problems on Wine
+        parent.send_message(0x201, 0, (y - parent.client_y) * 0x10000 + (x - parent.client_x)) + // WM_LBUTTONDOWN
+        parent.enable_window;
+    if (targetable and this == parent.play_button) {
+        confirm_action: primary_action;
+        target_priority: 1;
+    }
+}
+
+// APPLICATION: Call of Duty: Modern Warfare 2 (2009)
+
+if (process_name == "iw4sp") {
+    // Safe Mode window, which appears if the game is uncleanly terminated, doesn't like BM_CLICK.
+    manual_buttons: true;
+}
+
+// APPLICATION: Deadly Premonition: The Director's Cut launcher
+dialog (process_name == "DPLauncher") {
+    application_supports_gamepad: true;
+}
+
+// APPLICATION: Disney Bolt launcher
+
+edit (process_name == "DisneyBolt" and parent.index_in_parent == 3) {
+    // Gamepad binding controls. These will seemingly listen for gamepad input *forever* once activated, so best to ignore them entirely.
+    valid_target: false;
+    if (win32_gui_focus) {
+        disable_interactions: true;
+    }
+}
+
+// APPLICATION: EA App
+
+window (uia_class_name == "eax::services::windowing::QmlView") {
+    manual_buttons: true; // buttons do not respond to uia_invoke
+    manual_checkboxes: true; // checkboxes do not respond to uia_invoke
+
+    // We don't get structure change notifications from elements.
+    poll_children: true;
+
+    descendent {
+        if (recurse) {
+            poll_children: true;
+        }
+
+        if (targetable) {
+            poll_uia_bounding_rectangle: true;
+        }
+
+        combo_box {
+            recurse: false; // this can get all the list items which is time-consuming
+
+            primary_action: send_click; // The "Profile Visibility" combo box does not open when invoked
+
+            if (uia_focused and not root.child_matches(uia_class_name == "QQuickWindow" and uia_name == "EADesktop")) {
+                root
+                {
+                    poll_focus: true;
+                }
+
+                in_menu_navigation: true;
+                menu_up_action: send_key.up;
+                menu_down_action: send_key.down;
+                menu_select_action: send_key.enter;
+                // We can't dismiss these with any key other than enter.
+                menu_back_action: send_key.enter;
+                menu_close_action: send_key.enter;
+            }
+        }
+
+        button {
+            poll_uia_enabled: true;
+        }
+
+        if (uia_control_type.custom and previous_sibling.uia_control_type.image and
+            descendent_matches(button and name == "Close") and
+            ancestor_matches(window and active)) {
+            // Popover in EA App
+            is_active_modal: true;
+        }
+    }
+}
+
+window (uia_class_name == "QQuickWindow" and uia_name == "EADesktop") {
+    // The "Profile Visibility" combo box creates a window like this
+
+    in_menu_navigation: true;
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+
+    // We need to focus some other control because we can't tell this kind of combo box apart from others in EA App that are always open when focused
+    menu_select_action: send_key.enter + root.
+        child_matches(uia_class_name == "eax::services::windowing::QmlView").
+        descendent_matches(not combo_box and not window and uia_keyboard_focusable and set_focus).
+        set_focus;
+    menu_back_action: send_key.enter + root.
+        child_matches(uia_class_name == "eax::services::windowing::QmlView").
+        descendent_matches(not combo_box and not window and uia_keyboard_focusable and set_focus).
+        set_focus;
+    menu_close_action: send_key.enter + root.
+        child_matches(uia_class_name == "eax::services::windowing::QmlView").
+        descendent_matches(not combo_box and not window and uia_keyboard_focusable and set_focus).
+        set_focus;
+}
+
+group (parent.(uia_control_type.custom and parent.uia_class_name == "eax::services::windowing::QmlView")) {
+    // Most controls have reported coordinates offset by the height of the titlebar
+    offset_target_y: parent.child_matches(uia_control_type.button).height;
+}
+
+// APPLICATION: Embark Studios games (ARC Raiders and THE FINALS)
+dialog (child_matches(edit and readonly and multiline and autovscroll and autohscroll and win32_control_id == 1005))
+{
+    // GPU driver warning - BM_CLICK dismisses dialog but doesn't start the game
+    manual_buttons: true;
+}
+
+// APPLICATION: Final Fantasy IX launcher
+if (application_name == "FF9_Launcher") {
+    if (automation_id == "PlayButton" or automation_id == "windowedCheckbox") {
+        valid_target: true;
+    }
+}
+
+// APPLICATION: Final Fantasy VII (2013) launcher
+if (win32_process_name == "FF7_Launcher" and win32_class_name == "QWidget") {
+    supported: true;
+    recurse: true;
+}
+if (parent.(win32_process_name == "FF7_Launcher" and win32_class_name == "QWidget" and win32_window_text == "Main") and
+    index_in_parent == 1) {
+    poll_msaa_state: true;
+    valid_target: true;
+    primary_action: send_click;
+    confirm_action: send_click;
+    target_priority: 1;
+}
+if (parent.(win32_process_name == "FF7_Launcher" and win32_class_name == "QWidget" and win32_window_text == "Main") and
+    (index_in_parent == 2 or index_in_parent == 3 or index_in_parent == 4 or index_in_parent == 6)) {
+    poll_msaa_state: true;
+    valid_target: true;
+    primary_action: send_click;
+}
+
+// APPLICATION: Final Fantasy VII and Final Fantasy VIII - Remastered launchers:
+if (class_name.startswith("FF") and (class_name.endswith("Launcher") or class_name.endswith("_Launcher.Setting"))) {
+    application_supports_gamepad: true;
+}
+
+// APPLICATION: Final Fantasy VIII launcher
+if (win32_process_name == "FF8_Launcher" and win32_class_name == "QWidget") {
+    supported: true;
+    recurse: true;
+    poll_msaa_state: true;
+}
+if (parent.(win32_process_name == "FF8_Launcher" and win32_class_name == "QWidget") and not is_hwnd_element) {
+    // Sometimes the IAccessible just forgets the location???
+    if (x or y or width or height) {
+        saved_x: x - parent.x;
+        saved_y: y - parent.y;
+        saved_width: width;
+        saved_height: height;
+    }
+    if (not (x or y or width or height)) {
+        target_x: saved_x + parent.x;
+        target_y: saved_y + parent.y;
+        target_width: saved_width;
+        target_height: saved_height;
+        saved_x: saved_x;
+        saved_y: saved_y;
+        saved_width: saved_width;
+        saved_height: saved_height;
+    }
+}
+if (parent.(win32_process_name == "FF8_Launcher" and win32_class_name == "QWidget" and win32_window_text == "Notice") and
+    index_in_parent == 0) {
+    valid_target: true;
+    primary_action: send_click;
+    poll_msaa_state: true;
+    if (interactable) {
+        confirm_action: send_click;
+        target_priority: 1;
+    }
+}
+if (parent.(win32_process_name == "FF8_Launcher" and win32_class_name == "QWidget" and win32_window_text == "Main") and
+    index_in_parent == 1) {
+    valid_target: true;
+    primary_action: send_click;
+    poll_msaa_state: true;
+    if (interactable) {
+        confirm_action: send_click;
+        target_priority: 1;
+    }
+}
+if (parent.(win32_process_name == "FF8_Launcher" and win32_class_name == "QWidget" and win32_window_text == "Main") and
+    (index_in_parent == 2 or index_in_parent == 3 or index_in_parent == 4 or index_in_parent == 6 or index_in_parent == 7 or index_in_parent == 8)) {
+    valid_target: true;
+    primary_action: send_click;
+    poll_msaa_state: true;
+}
+if (parent.(win32_process_name == "FF8_Launcher" and win32_class_name == "QWidget" and win32_window_text == "ChocoboRPG") and
+    (index_in_parent == 3 or index_in_parent == 5)) {
+    valid_target: true;
+    primary_action: send_click;
+    poll_msaa_state: true;
+}
+
+if (process_name.startswith("Chocobo_") and win32_class_name == "ChocoboRPG" and active) {
+    in_menu_navigation: true;
+    menu_left_action: map_to_key.left;
+    menu_down_action: map_to_key.down;
+    menu_up_action: map_to_key.up;
+    menu_right_action: map_to_key.right;
+    menu_select_action: map_to_key.left_control;
+    menu_back_action: send_key.esc;
+    menu_close_action: map_to_key.left_control;
+}
+
+// APPLICATION: Final Fantasy X/X-2 HD Remaster launcher
+if (process_name == "FFX&X-2_LAUNCHER" and winforms_control_type == "GameLauncher.MainForm, GameLauncher, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null") {
+    // Static image map
+    recurse_method: "virtual";
+    virtual_child_count: 7;
+    supported: true;
+    child {
+        button: true;
+        valid_target: true;
+        primary_action: send_click;
+        interactable: parent.interactable;
+        x: parent.client_x_to_screen(client_x);
+        y: parent.client_y_to_screen(client_y);
+        width: parent.client_x_to_screen(client_x + client_width) - x;
+        height: parent.client_y_to_screen(client_y + client_height) - y;
+        target_x: x;
+        target_y: y;
+        target_width: width;
+        target_height: height;
+    }
+    child (virtual_child_index == 0) {
+        // FINAL FANTASY X
+        client_x: 102;
+        client_y: 128;
+        client_width: 335;
+        client_height: 61;
+    }
+    child (virtual_child_index == 1) {
+        // FINAL FANTASY X: Eternal Calm
+        client_x: 102;
+        client_y: 210;
+        client_width: 335;
+        client_height: 61;
+    }
+    child (virtual_child_index == 2) {
+        // FINAL FANTASY X-2
+        client_x: 102;
+        client_y: 292;
+        client_width: 335;
+        client_height: 61;
+    }
+    child (virtual_child_index == 3) {
+        // FINAL FANTASY X-2: Last Mission
+        client_x: 102;
+        client_y: 374;
+        client_width: 335;
+        client_height: 61;
+    }
+    child (virtual_child_index == 4) {
+        // Credits & Bonus Audio
+        client_x: 102;
+        client_y: 457;
+        client_width: 335;
+        client_height: 61;
+    }
+    child (virtual_child_index == 5) {
+        // Additional Credits
+        client_x: 102;
+        client_y: 527;
+        client_width: 335;
+        client_height: 18;
+    }
+    child (virtual_child_index == 6) {
+        // Setting
+        client_x: 102;
+        client_y: 563;
+        client_width: 335;
+        client_height: 18;
+    }
+}
+
+if (process_name == "FFX&X-2_LAUNCHER" and winforms_control_type == "GameLauncher.CreditForm, GameLauncher, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" and active) {
+    in_menu_navigation: true;
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_back_action: send_key.esc;
+}
+
+// APPLICATION: Final Fantasy XI launcher
+if (win32_process_name == "FFXiPadConfig") {
+    application_supports_gamepad: true;
+}
+
+dialog (win32_process_name == "polcfg" and (name == "PlayOnline Viewer Config - Gamepad Configuration" or name == "Calibrate Gamepad")) {
+    application_supports_gamepad: true;
+}
+
+// APPLICATION: Firefox
+window (uia_class_name == "MozillaWindowClass") {
+    firefox_use_offscreen_menu: true;
+}
+
+if (uia_control_type.(tool_bar or menu_bar or menu_item) and parent.firefox_use_offscreen_menu) {
+    offscreen: false;
+    firefox_use_offscreen_menu: true;
+}
+
+if (process_name == "firefox") {
+    manual_buttons: true;
+
+    if (uia_control_type == undefined) {
+        poll_uia_offscreen: true;
+        targetable: false;
+    }
+
+    if (combo_box and parent.(tool_bar and automation_id == "nav-bar")) {
+        // Navigation box shows up as combo box but expand does nothing
+        primary_action: send_click + show_keyboard;
+    }
+
+    if (button and parent.(tool_bar and automation_id == "TabsToolbar")) {
+        // This is actually in the title bar, so ignore the close button
+        cancel_action: undefined;
+    }
+
+    page_tab {
+        primary_action: msaa_do_default_action;
+    }
+}
+
+menu (class_name == "MozillaDropShadowWindowClass") {
+    in_menu_navigation: true;
+    menu_left_action: send_key.left;
+    menu_down_action: send_key.down;
+    menu_up_action: send_key.up;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc;
+    menu_close_action: send_key.esc;
+}
+
+if (application_name == "Firefox" or application_name == "firefox") {
+    menu (attributes.tag == "menupopup") {
+        if (visible) {
+            in_menu_navigation: true;
+            menu_left_action: send_key.left;
+            menu_down_action: send_key.down;
+            menu_up_action: send_key.up;
+            menu_right_action: send_key.right;
+            menu_select_action: send_key.enter;
+            menu_back_action: send_key.esc;
+            menu_close_action: send_key.esc;
+        }
+        in_menu_navigation: false;
+    }
+}
+
+// APPLICATION: FreestyleFootball R
+dialog (win32_process_name == "Launcher" and not child_matches(not bitmap)) {
+    freestyle_football_r: true;
+}
+
+bitmap (win32_process_name == "Launcher" and parent.freestyle_football_r) {
+    freestyle_football_r: true;
+    if (win32_control_id == 1022 or tabstop) {
+        valid_target: true;
+    }
+}
+
+// APPLICATION: Giana Sisters: Twisted Dreams - Rise of the Owlverlord launcher
+if (win32_process_name == "GSLauncher") {
+    application_supports_gamepad: true;
+}
+
+// APPLICATION: gnome-shell
+if (application_name == "gnome-shell") {
+    window
+    {
+        is_panel: true;
+        manual_buttons: true;
+    }
+
+    toggle_button (targetable) {
+        primary_action: send_click;
+    }
+
+    in_menu_navigation: false;
+
+    panel (parent.interactable and not parent.stop_interactable and showing and visible) {
+        // A lot of panels containing controls aren't enabled or sensitive
+        interactable: true;
+    }
+}
+
+// APPLICATION: GVIM
+
+if (win32_process_name == "gvim") {
+    scroll_bar (horizontal) {
+        adjust_value_action: adjust_scrollbars(this, undefined);
+    }
+    scroll_bar (vertical) {
+        adjust_value_action: adjust_scrollbars(undefined, this);
+    }
+    if (class_name == "Vim") {
+        scrollable: true;
+        scroll_view_action: adjust_scrollbars(
+            child_matches(scroll_bar and horizontal),
+            child_matches(scroll_bar and vertical)
+        );
+    }
+}
+
+// APPLICATION: Graze Counter launcher
+
+if (process_name == "KeyConfig" and class_name == "System.Windows.Forms.TextBox" and
+    parent.class_name == "KeyConfig.FormMainUserControl.UserControlPad") {
+    if (win32_gui_focus) {
+        disable_interactions: true;
+    }
+    primary_action: on_release(assign("disable_interactions", true) + win32_set_focus + wait_until(not win32_gui_focus) + parent.parent.child_matches(focusable).win32_set_focus + assign("disable_interactions", undefined));
+}
+
+// Application: Gumboy: Crazy Adventures launcher
+
+if (process_name == "GumboyCrazyAdventures") {
+    if (win32_class_name == "TTntPanel.UnicodeClass" and parent.win32_class_name == "TOptionsForm.UnicodeClass" and child_count == 0) {
+        valid_target: true;
+    }
+
+    if (win32_class_name == "TStartForm" and visible and
+        ((win32_gui_active and win32_gui_focus) or
+         root.child_matches(process_name == "GumboyCrazyAdventures" and class_name == "TApplication" and win32_gui_active and win32_gui_focus))) {
+            in_menu_navigation: true;
+            menu_up_action: send_key.up;
+            menu_down_action: send_key.down;
+            menu_left_action: send_key.left;
+            menu_right_action: send_key.right;
+            menu_select_action: send_key.enter;
+            menu_back_action: send_key.esc;
+    }
+}
+
+// APPLICATION: HITMAN World of Assassination
+if (process_name == "Launcher" and parent.win32_class_name == "Options_window_class" and
+    win32_class_name == "Static" and child_count > 0 and sibling_matches(win32_class_name == "ScrollBar"))
+{
+    scrollable: true;
+    no_scrollable_fallback: true;
+
+    vscroll: sibling_matches(win32_class_name == "ScrollBar");
+
+    scroll_view_action: adjust_scrollbars(hscroll, vscroll);
+
+    scroll_target_margin: 0;
+
+    scroll_pane_x: x;
+    scroll_pane_y: y;
+    scroll_pane_width: width;
+    scroll_pane_height: height;
+
+    scroll_view_x: x;
+    scroll_view_y: y;
+    scroll_view_width: width;
+    scroll_view_height: height;
+}
+
+// APPLICATION: Kega Fusion
+if (process_name == "Fusion") {
+    button (win32_window_text == "Define") {
+        primary_action: on_release(click);
+    }
+
+    label (win32_window_text.startswith("Press ")) {
+        disable_interactions: true;
+    }
+}
+
+// APPLICATION: Lara Croft and the Temple of Osiris Launcher
+
+if (class_name == "NixxesLC2" and win32_gui_active and win32_gui_focus) {
+    in_menu_navigation: true;
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc;
+}
+
+// APPLICATION: LIGHTNING RETURNS: FINAL FANTASY XIII
+
+if (process_name == "LRFF13" and win32_class_name == "SQEX.CDev.Engine.Framework.Window") {
+    application_supports_gamepad: true;
+}
+
+// APPLICATION: LocoCycle launcher
+
+if (process_name == "Launcher" and class_name.startswith("BUTTON_")) {
+    supported: true;
+    valid_target: true;
+    if (class_name == "BUTTON_64") {
+        confirm_action: send_click;
+    }
+}
+
+// APPLICATION: Hitman: Absolution Launcher
+if (class_name == "Hitman: Absolution" and win32_gui_active and win32_gui_focus) {
+    in_menu_navigation: true;
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc;
+}
+
+// APPLICATION: Memories Off #5 Togireta Film
+edit (process_name == "Launcher" and 
+    (ancestor_matches(parent.is_root).name == "设定触控板" or ancestor_matches(parent.is_root).name == "手把設定")) {
+    primary_action: on_release(assign("disable_interactions", true) + send_click + wait_until(focused) + wait_until(not focused) + parent.child_matches(combo_box).set_focus + assign("disable_interactions", undefined));
+
+    if (focused) {
+        disable_interactions: true;
+    }
+}
+
+// APPLICATION: Nixxes Launcher
+if (class_name == "GameNxApp") {
+    application_supports_gamepad: true;
+}
+
+dialog (parent.is_root and root.child_matches(class_name == "GameNxApp").pid == pid) {
+    application_supports_gamepad: true;
+}
+
+if (class_name == "NxApp" and process_name == "DXMD") {
+    application_supports_gamepad: true;
+}
+
+if (class_name.endswith("NxApp") and class_name != "GameNxApp" and win32_gui_active and win32_gui_focus) {
+    in_menu_navigation: true;
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc;
+}
+
+// APPLICATION: Oddworld: Stranger's Wrath HD
+dialog (process_name == "Launcher" and name == "Oddworld: Stranger's Wrath HD Controls Configuration") {
+    child (button and pushlike) {
+        primary_action: on_release(send_click);
+        if (pushed) {
+            disable_interactions: true;
+        }
+    }
+}
+
+// APPLICATION: Overlord launcher
+
+dialog (process_name == "GamepadConfig" and child_matches(button and name == "Clear Mapping")) {
+    child (button) {
+        primary_action: on_release(click);
+        if (name == "Scanning")
+        {
+            disable_interactions: true;
+        }
+    }
+}
+
+// APPLICATION: Paradox Launcher
+if (process_name == "Paradox Launcher") {
+    button ((name == "LOSLEGEN" or name == "GET STARTED" or name == "ENTRAR" or name == "COMMENCER" or
+        name == "開始する" or name == "시작하기" or name == "ROZPOCZNIJ" or name == "COMEÇAR" or
+        name == "НАЧАТЬ" or name == "BAŞLA" or name == "开始" or name == "開始") and interactable) {
+        confirm_action: primary_action;
+        target_priority: 1;
+    }
+
+    tool_tip { // Language selection dropdown
+        recurse: true;
+    }
+
+    list_item (ancestor_matches(tool_tip)) {
+        debug: true;
+    }
+
+    list_item (ancestor_matches(tool_tip) and interactable) {
+        targetable: true;
+    }
+
+    poll_msaa_location: true;
+}
+
+// APPLICATION: plasmashell
+
+// TODO: 5.27 should have the panel identifiable by ID
+
+application (name == "plasmashell") {
+    child (id == "QApplication.PanelView") {
+        is_panel: true;
+        manual_buttons: true;
+    }
+}
+
+// APPLICATION: Rayman: Raving Rabbids launcher
+if (win32_process_name == "SettingsApplication" and dialog and
+    index_in_parent == 6 and first_sibling.(dialog and visible)) {
+    // Contents of audio tab sometimes is visible behind the graphics tab
+    interactable: false;
+}
+
+// APPLICATION: Red Faction: Armageddon launcher
+if (process_name == "rf4_launcher" and win32_class_name == "Static" and bitmap) {
+    // Image map. Layout is entirely static, so we can just hard-code positions
+    recurse_method: "virtual";
+    virtual_child_count: 2;
+    supported: true;
+    interactable: parent.interactable;
+    child {
+        button: true;
+        valid_target: true;
+        primary_action: send_click;
+        interactable: parent.interactable;
+        target_x: x;
+        target_y: y;
+        target_width: width;
+        target_height: height;
+    }
+    child (virtual_child_index == 0) {
+        // DirectX 9
+        x: parent.client_x_to_screen(338);
+        y: parent.client_y_to_screen(149);
+        width: parent.client_x_to_screen(338+114) - x;
+        height: parent.client_y_to_screen(150+24) - y;
+    }
+    child (virtual_child_index == 1) {
+        // DirectX 10 & 11
+        x: parent.client_x_to_screen(338);
+        y: parent.client_y_to_screen(184);
+        width: parent.client_x_to_screen(338+176) - x;
+        height: parent.client_y_to_screen(184+47) - y;
+        confirm_action: send_click;
+        target_priority: 1;
+    }
+}
+
+// APPLICATION: RefRain - prism memories -
+
+button (parent.class_name == "System.Windows.Forms.GroupBox" and
+    parent.parent.class_name == "RefRainConfig.FrmMain")
+{
+    // Can't use gamepad config buttons because we can't tell when they want gamepad input
+    valid_target: false;
+    gamepad_button: true;
+}
+
+if (class_name == "RefRainConfig.FrmMain" and (gamepad_config_used or descendent_matches(gamepad_button and focused)))
+{
+    gamepad_config_used: false;
+    stop_interactable: true;
+}
+
+// APPLICATION: Rockstar Games Launcher Installer
+
+if (win32_class_name == "Rockstar Games Launcher Installer") {
+    application_supports_gamepad: true;
+}
+
+// APPLICATION: Samurai Aces III: Sengoku Cannon config tool
+
+if (win32_process_name == "setting")
+{
+    combo_box (parent.dialog and parent.parent.dialog and
+        parent.parent.child_matches(is_hwnd_tab_control).selected_item.name == "Joystick Settings" and
+        width < parent.width / 2 and // Ignore joystick selection
+        win32_combo_box_list_element.item_count != 1) // Make sure a joystick is actually selected
+    {
+        // Settings dialog is listening for input while combo box is open or focused
+        primary_action: on_release(assign("disable_interactions", true) + do_default_action + wait_until(focused and not expanded) + parent.parent.child_matches(is_hwnd_tab_control).set_focus + assign("disable_interactions", undefined));
+        in_menu_navigation: false;
+        if (expanded or focused)
+        {
+            disable_interactions: true;
+        }
+    }
+}
+
+// APPLICATION: SONIC THE HEDGEHOG 4 Episode II
+
+if (process_name == "Launcher" and
+    class_name == "System.Windows.Forms.Panel" and winforms_control_name == "pnlPlayerPage" and visible and
+    sibling_matches(class_name == "System.Windows.Forms.Panel" and winforms_control_name == "pnlSettingsPage" and visible))
+{
+    interactable: false;
+}
+
+// APPLICATION: STAR WARS Starfighter launcher
+
+if (process_name == "Starfighter" and win32_class_name.startswith("CltWin:400000:8:") and
+    win32_gui_active and win32_gui_focus)
+{
+    in_menu_navigation: true;
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc;
+}
+
+// APPLICATION: The Legend of Heroes: Trails of Cold Steel I through IV config tools
+
+if (win32_process_name == "Sen1Launcher" or win32_process_name == "Sen2Launcher" or 
+    win32_process_name == "Sen3Launcher" or win32_process_name == "Sen4Launcher")
+{
+    application_supports_gamepad: true;
+}
+
+// APPLICATION: Thief Launcher
+
+if (class_name == "Thief" and process_name == "Shipping-ThiefGame" and win32_gui_active and win32_gui_focus) {
+    in_menu_navigation: true;
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc;
+}
+
+// APPLICATION: Tomb Raider (2013) Launcher
+
+if (class_name == "Tomb Raider" and win32_gui_active and win32_gui_focus) {
+    in_menu_navigation: true;
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc;
+}
+
+// APPLICATION: Trine launcher
+
+if (win32_process_name == "trine1_launcher" or win32_process_name == "trine2_launcher") {
+    application_supports_gamepad: true;
+}
+
+// APPLICATION: Unity3D launchers
+dialog (child_matches(win32_class_name == "SysTabControl32" and win32_control_id == 1016 and win32_item_count == 2) and
+        child_matches(image and win32_control_id == 1001))
+{
+    is_unity3d_launcher: true;
+    supported: true;
+}
+
+if ((is_hwnd_listview_cell or is_hwnd_header_item) and (parent.parent.parent.parent.is_unity3d_launcher))
+{
+    // This is the table on the Input tab. For most games these are so broken that we can't work with it in Xalia.
+    // The most common observed behavior in a small sample is that pressing any gamepad button queues it as an
+    // input, and attempting to bind a control will immediately bind it to that button. Thus, pressing the button
+    // to activate the cell will just bind it to A.
+    targetable: false;
+    // primary_action: on_release(send_click+send_click);
+}
+
+// APPLICATION: VLC
+layered_pane (spi_application.name == "vlc") {
+    // Buttons along the top of preferences window are checkboxes that do not update the UI on Toggle
+    manual_checkboxes: true;
+}
+
+// APPLICATION: Windows taskbar
+if (is_uia_element and uia_class_name == "Shell_TrayWnd") {
+    manual_buttons: true;
+}
+
+// APPLICATION: Windows terminal
+if (class_name == "TermControl") {
+    recurse: true;
+
+    if (interactable) {
+        targetable: true;
+        primary_action: set_focus + show_keyboard;
+        target_width: scroll_view_width;
+        target_height: scroll_view_height;
+    }
+}
+
+// APPLICATION: WiX installers
+if (class_name == "WixStdBA" and visible and root.child_matches(win32_gui_active).process_name == process_name and
+    root.child_matches(win32_gui_active).class_name == "WixBurnMessageWindow") {
+    toplevel_interactable: true;
+}
+
+// APPLICATION: X-Blades (launcher)
+if (process_name == "launcher" and ancestor_matches(class_name == "GameLauncherWnd")) {
+	recurse: invisible == false;
+
+    manual_buttons: true;
+    manual_checkboxes: true;
+
+	poll_msaa_state: true;
+
+    if (msaa_role.list) {
+        recurse_method: "msaa_navigate";
+        targetable: false;
+    }
+
+    if (msaa_role.list_item) {
+        valid_target: true;
+    }
+}
+
+// APPLICATION: xfce4-panel
+if (application_name == "xfce4-panel") {
+    panel (child_count == 1 and child_at_index(0).(filler and child_count == 0)) {
+        // Whisker menu
+        valid_target: true;
+    }
+}
+
+// APPLICATION: Ys SEVEN launcher
+button (application_name == "Ys7Launcher" and control_id >= 1022 and control_id <= 1046)
+{
+    // Buttons in key config dialog
+    primary_action: on_release(click);
+    if (name == "")
+    {
+        // Waiting for input
+        disable_interactions: true;
+    }
+}
+
+// Toolkit-specific behaviors
+
+// TOOLKIT: Setup UI dll (ATL)
+
+if (win32_class_name.startswith("ATL:") and child_matches(msaa_role.link and focusable and linked)) {
+    // custom(?) link control
+    supported: true;
+
+    child (msaa_role.link) {
+        visible: true;
+        enabled: true;
+        valid_target: true;
+    }
+}
+
+// TOOLKIT: ATL
+
+// TOOLKIT: RPG Maker
+
+if (win32_class_name == "TFormLcfGameMain")
+{
+    // The game window contains only a button control that is technically visible+enabled but actually hidden.
+    interactable: false;
+}
+
+// TOOLKIT: TntWare Delphi Unicode Controls
+
+if (win32_class_name == "TTntRadioGroup.UnicodeClass" or win32_class_name == "TTntPanel.UnicodeClass") {
+    supported: not child_matches(not supported);
+}
+
+// TOOLKIT: Delphi
+
+root (child_matches(win32_class_name == "TApplication" and toplevel_interactable)) {
+    // Sometimes, Delphi will focus a 0x0 window with class TApplication instead of an interactable window
+    delphi_pid_override: child_matches(win32_class_name == "TApplication" and toplevel_interactable).pid;
+}
+
+if (win32_class_name == "TMainForm" and visible and root.delphi_pid_override == pid) {
+    toplevel_interactable: true;
+}
+
+if (win32_class_name == "TMainForm" or win32_class_name == "TPanel" or
+    win32_class_name == "TTabSheet" or win32_class_name == "TScrollBox" or
+    win32_class_name == "TRadioGroup") {
+    supported: not child_matches(not supported);
+}
+
+// TOOLKIT: Tk (Win32)
+
+if (class_name == "TkChild" or class_name == "TkTopLevel") {
+    supported: not child_matches(not supported);
+    manual_buttons: true;
+    descendent (win32_class_name == "Button" and ownerdraw) {
+        button: true;
+    }
+}
+
+// TOOLKIT: Winforms
+
+if (is_nonclient_scrollbar and parent.win32_class_name.startswith("WindowsForms10.Window.")) {
+    // Winforms tends to rely on GetScrollInfo giving it a correct value for thumb scrolling
+    win32_use_set_scroll_info: true;
+}
+
+if (win32_class_name.startswith("WindowsForms10.SysTabControl32.")) {
+    // This will default to using winforms' IAccessible to recurse, which doesn't work
+    if (recurse) {
+        recurse_method: "win32_tab";
+    }
+}
+
+if (win32_class_name.startswith("WindowsForms10.LISTBOX.")) {
+    if (recurse) {
+        recurse_method: "win32_list_visible";
+    }
+}
+
+if (win32_class_name.startswith("WindowsForms10.BUTTON.") and not is_uia_element and msaa_role.client and ownerdraw) {
+    // Button control - sets BS_OWNERDRAW but does not set a role
+    role: enum("pushbutton", "push_button", "button");
+    control_type: enum("pushbutton", "push_button", "button");
+    button: true;
+    pushbutton: true;
+    push_button: true;
+}
+
+if (class_name == "System.Windows.Forms.UpDownBase+UpDownButtons") {
+    // No way to actually see the children, so just make some up
+    recurse_method: "virtual";
+    virtual_child_count: 2;
+    supported: true;
+    child {
+        // FIXME: We need to pull the left border in because otherwise it obscures the textbox contents, but an arbitrary adjustment is not ideal
+        x: parent.x + 5;
+        target_x: parent.x + 5;
+        y: parent.y + ((parent.height - parent.height % 2) / 2 * virtual_child_index);
+        target_y: parent.y + ((parent.height - parent.height % 2) / 2 * virtual_child_index);
+        width: parent.width - 9;
+        target_width: parent.width - 9;
+        height: (parent.height - parent.height % 2) / 2;
+        target_height: (parent.height - parent.height % 2) / 2;
+        button: true;
+        valid_target: true;
+        interactable: parent.interactable;
+    }
+}
+
+if (class_name == "System.Windows.Forms.NumericUpDown" or class_name == "System.Windows.Forms.DomainUpDown") {
+    recurse_method: "win32";
+    supported: not child_matches(not supported);
+    valid_target: false;
+}
+
+if (win32_class_name.startswith("WindowsForms10.Window.") and msaa_role.client) {
+    // IAccessible is likely to not give us children
+    recurse_method: "win32";
+    // We have no information on the type of this control. Assume it's an ordinary container if it has children.
+    supported: (not win32_style_names.tabstop or child_count > 0) and not child_matches(not supported);
+    if (child_count > 0) {
+        valid_target: false;
+    }
+}
+
+if (class_name == "System.Windows.Forms.GroupBox")
+{
+    focusable: false;
+    valid_target: false;
+    recurse_method: "win32";
+    supported: not child_matches(not supported);
+}
+
+if (win32_class_name.startswith("WindowsForms10."))
+{
+    focusable: win32_style_names.tabstop;
+    visible: win32_style_names.visible;
+}
+
+// TOOLKIT: WPF
+
+if (uia_framework_id == "WPF") {
+    if (parent.is_root and uia_class_name == "Popup" and enabled and visible) {
+        // Combo Box popup
+		in_menu_navigation: true;
+		menu_up_action: send_key.up;
+		menu_down_action: send_key.down;
+		menu_left_action: send_key.left;
+		menu_right_action: send_key.right;
+		menu_select_action: send_key.enter;
+		menu_back_action: send_key.esc;
+    }
+
+    if (uia_class_name == "ComboBox") {
+        supported: true;
+    }
+
+    if (uia_class_name == "Image") {
+        supported: true;
+    }
+
+    if (uia_class_name == "Window") {
+        supported: not child_matches(not supported);
+    }
+}
+
+// TOOLKIT: wxWidgets (Win32)
+
+if (class_name == "wxWindowClassNR") {
+    supported: not child_matches(not supported);
+}
+
+// TOOLKIT: Visual Basic 6
+if (class_name == "ThunderRT6FormDC") {
+    supported: not child_matches(not supported);
+}
+
+if (class_name == "ThunderRT6PictureBoxDC" or class_name == "ThunderRT6Timer") {
+    supported: true;
+}
+
+// TOOLKIT: Win32
+if (is_hwnd_dialog) {
+    supported: child_matches(supported) and not child_matches(not supported);
+    valid_target: false;
+}
+
+if (is_hwnd_button) {
+    supported: not splitbutton;
+
+    if (ownerdraw) {
+        recurse: true;
+        valid_target: not descendent_matches(valid_target or targetable);
+    }
+}
+
+if (is_hwnd_scrollbar) {
+    supported: vert or horz;
+}
+
+if (is_hwnd_static) {
+    supported: not child_matches(not supported);
+    recurse: true;
+    valid_target: false;
+}
+
+if (is_hwnd_combobox or is_hwnd_trackbar or is_hwnd_listview or is_nonclient_scrollbar or is_hwnd_updown) {
+    supported: true;
+}
+
+if (is_hwnd_combobox and win32_combo_box_dropped_state) {
+    in_menu_navigation: true;
+
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_select_action: send_key.enter;
+    menu_back_action: collapse;
+    menu_close_action: collapse;
+}
+
+if (is_hwnd_edit) {
+    supported: true;
+    win32_use_nonclient: true;
+}
+
+if (is_hwnd_tab_control) {
+    supported: not child_matches(not is_hwnd_tab_item and not supported);
+}
+
+if (is_hwnd_listbox) {
+    supported: not ownerdrawvariable;
+}
+
+if (is_hwnd_listbox_item) {
+    valid_target: true;
+}
+
+if (win32_real_class_name == "SysIPAddress32") {
+    // IP Address control. We get support for free because it's a container of 4 edit controls
+    supported: true;
+}
+
+if (win32_real_class_name == "msctls_progress32") {
+    // Progress bar. Generally no user inputs accepted.
+    supported: true;
+}
+
+if (is_hwnd_syslink) {
+    supported: true;
+}
+
+// General behaviors:
+
+if (spi_attributes.xalia_ignore or spi_attributes.__xalia__ignore or win32_has_window_property("__xalia__ignore"))
+{
+    recurse: false;
+    stop: true;
+}
+
+if (spi_attributes.__xalia__supports_gamepad or win32_has_window_property("__xalia__supports_gamepad")) {
+    application_supports_gamepad: true;
+}
+
+// Menus
+
+if (in_menu_navigation and not application_supports_gamepad) {
+    menu_navigation_control: this;
+}
+
+if (not application_supports_gamepad and child_matches(menu_navigation_control)) {
+    menu_navigation_control: child_matches(menu_navigation_control).menu_navigation_control;
+}
+
+root (menu_navigation_control) {
+    disable_interactions: true;
+
+    menu_move_action: menu_navigation_control.(map_directions(menu_left_action, menu_down_action, menu_up_action, menu_right_action));
+
+    menu_left_action: menu_navigation_control.menu_left_action;
+    menu_down_action: menu_navigation_control.menu_down_action;
+    menu_up_action: menu_navigation_control.menu_up_action;
+    menu_right_action: menu_navigation_control.menu_right_action;
+    menu_select_action: menu_navigation_control.menu_select_action;
+    menu_back_action: menu_navigation_control.menu_back_action;
+    menu_close_action: menu_navigation_control.menu_close_action;
+}
+
+// If a menu is open, we shouldn't try to interact with anything else.
+menu (child_matches(spi_state.showing) and (not parent.spi_role.(menu or combo_box) or child_matches(spi_state.selected)))
+{
+    in_menu_navigation: true;
+
+    if (descendent_matches(in_menu_navigation)) {
+        // Use actions from inner-most menu
+
+        menu_up_action: descendent_matches(in_menu_navigation).menu_up_action;
+        menu_down_action: descendent_matches(in_menu_navigation).menu_down_action;
+        menu_right_action: descendent_matches(in_menu_navigation).menu_right_action;
+        menu_left_action: descendent_matches(in_menu_navigation).menu_left_action;
+        menu_select_action: descendent_matches(in_menu_navigation).menu_select_action;
+        menu_back_action: descendent_matches(in_menu_navigation).menu_back_action;
+        menu_close_action: descendent_matches(in_menu_navigation).menu_close_action;
+    }
+
+    // Use keyboard interaction for this if possible, it's probably less janky than going through AT-SPI
+    menu_up_action: send_key.up or
+        child_matches(spi_state.selected).previous_sibling_matches(spi_state.(sensitive and visible and showing) and spi_role.(menu or menu_item or check_menu_item or radio_menu_item)).spi_select or
+        last_child_matches(spi_state.(sensitive and visible and showing) and spi_role.(menu or menu_item or check_menu_item or radio_menu_item)).spi_select;
+    menu_down_action: send_key.down or
+        child_matches(spi_state.selected).next_sibling_matches(spi_state.(sensitive and visible and showing) and spi_role.(menu or menu_item or check_menu_item or radio_menu_item)).spi_select or
+        first_child_matches(spi_state.(sensitive and visible and showing) and spi_role.(menu or menu_item or check_menu_item or radio_menu_item)).spi_select;
+
+    // Open a menu if possible, otherwise go to the "next" menu
+    menu_right_action: send_key.right or
+        child_matches(spi_state.selected and spi_role.menu).spi_action.click or
+        ancestor_matches(spi_role.menu_bar).child_matches(spi_state.selected).(
+            next_sibling_matches(sensitive and visible and showing) or
+            first_sibling_matches(sensitive and visible and showing)
+        ).spi_action.click;
+    // We can't really hide a menu, but we can deselect its child which (based on the
+    // logic above) will mean we no longer treat it as open, and will hide its children.
+    menu_left_action: send_key.left or
+        (parent.spi_role.menu and spi_clear_selection) or
+        ancestor_matches(spi_role.menu_bar).child_matches(spi_state.selected).(
+            previous_sibling_matches(sensitive and visible and showing) or
+            last_sibling_matches(sensitive and visible and showing)
+        ).spi_action.click;
+    menu_select_action: send_key.enter or child_matches(spi_state.selected).click;
+    if (parent.spi_role.menu)
+    {
+        menu_back_action: send_key.left or spi_clear_selection;
+    }
+    menu_back_action: send_key.escape or
+        (parent.spi_role.(menu or menu_bar) and spi_deselect) or 
+        root.this_or_descendent_matches(spi_role.combo_box and child_matches(spi_role.menu and spi_state.showing)).spi_action.press;
+    menu_close_action: send_key.escape or
+        this_or_ancestor_matches(parent.spi_role.menu_bar).spi_deselect or
+        root.this_or_descendent_matches(spi_role.combo_box and child_matches(spi_role.menu and spi_state.showing)).spi_action.press;
+}
+
+// Qt combo boxes contain lists, not menus like in Gtk
+combo_box (child_matches(spi_role.list and (spi_state.focused or child_matches(spi_state.focused))))
+{
+    in_menu_navigation: true;
+
+    // We can't manipulate the menu through AT-SPI, we have to use the keyboard
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc or spi_action.Press;
+    menu_close_action: send_key.esc or spi_action.Press;
+}
+
+combo_box (uia_expand_collapse_state.expanded) {
+    in_menu_navigation: true;
+
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_select_action: send_key.enter;
+    menu_back_action: uia_collapse or send_key.esc;
+    menu_close_action: uia_collapse or send_key.esc;
+}
+
+// Qt/AT-SPI2 menus
+popup_menu (spi_state.showing)
+{
+    in_menu_navigation: true;
+
+    // We can't manipulate the menu through AT-SPI, we have to use the keyboard
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc or parent.spi_action.ShowMenu;
+    menu_close_action: send_key.esc or parent.spi_action.ShowMenu;
+}
+
+// UI Automation menubars
+root (win32_active_element.uia_class_name == "#32768")
+{
+    // Active menu, this doesn't normally happen and suggests Alt to dismiss may not work if the normal menu loop isn't used
+    in_menu_navigation: true;
+
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+	menu_back_action: send_key.esc;
+	menu_close_action: send_key.esc;
+}
+
+root (uia_menu_mode or uia_in_menu or
+    child_matches(uia_class_name == "Qt5QWindowPopupDropShadowSaveBits"))
+{
+    in_menu_navigation: true;
+
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    // On Windows, pressing Escape hides the menu but stays in "menu mode", so we must use Alt to dismiss
+    if (uia_in_submenu) {
+        menu_back_action: send_key.esc;
+    }
+    menu_back_action: send_key.alt;
+    menu_close_action: send_key.alt;
+}
+
+// Combo boxes contain subcontrols we don't want to directly navigate to
+if (combo_box and not uia_expand_collapse_state.leaf_node)
+{
+    stop_interactable: true;
+}
+
+// We have a separate mechanism for interacting with menus
+if (parent.menu)
+{
+    interactable: false;
+}
+
+// Workaround for Windows title bar controls
+if (class_name == "DRAG_BAR_WINDOW_CLASS") {
+    interactable: false;
+}
+
+if (class_name == "TITLE_BAR_SCAFFOLDING_WINDOW_CLASS") {
+    interactable: false;
+}
+
+title_bar (automation_id == "TitleBar") {
+    if (parent.(interactable and not stop_interactable)) {
+        // For some reason the standard Win32 titlebar is offscreen
+        interactable: true;
+    }
+}
+
+if (class_name == "CtryNotifySink") {
+    // Seen in Windows Explorer, seems to be some useless blob related to cross-toolkit embedding
+    interactable: false;
+}
+
+// Lists and tables
+
+root (descendent_matches(in_list_navigation)) {
+    current_list: descendent_matches(in_list_navigation);
+
+    list_move_action: descendent_matches(in_list_navigation).(map_directions(list_left_action, list_down_action, list_up_action, list_right_action));
+
+    list_left_action: descendent_matches(in_list_navigation).list_left_action;
+    list_down_action: descendent_matches(in_list_navigation).list_down_action;
+    list_up_action: descendent_matches(in_list_navigation).list_up_action;
+    list_right_action: descendent_matches(in_list_navigation).list_right_action;
+
+    list_primary_action: descendent_matches(in_list_navigation).list_primary_action;
+    list_secondary_action: descendent_matches(in_list_navigation).list_secondary_action;
+    list_context_menu_action: descendent_matches(in_list_navigation).list_context_menu_action;
+    list_close_action: descendent_matches(in_list_navigation).list_close_action;
+}
+
+// Top-level objects
+
+root {
+    if (environ.XALIA_SUPPORTED_ONLY and environ.XALIA_SUPPORTED_ONLY != "0") {
+        supported_only: true;
+    }
+}
+
+if (parent.is_root and not is_msaa_element and not is_uia_element) {
+    // Fallback for pure Win32 with custom toplevel window class.
+    supported: child_matches(supported and not is_win32_nonclient) and not child_matches(not supported);
+}
+
+if (role.(desktop_frame or application)) {
+    recurse: true;
+}
+
+if (role.(window or frame or dialog or alert or color_chooser or file_chooser or font_chooser or utility))
+{
+    recurse: true;
+}
+
+if (is_spi_element and role.filler) {
+    // This could be a plug/socket which caused some atk versions to crash when GetChildren is called
+    // The crash was introduced in at-spi2-core 2.47.1 and fixed in 2.48.3.
+    // In versions before 2.47.1, GetChildren incorrectly returned no children.
+    // ref: https://gitlab.gnome.org/GNOME/at-spi2-core/-/issues/98
+    recurse_method: "spi_child_at_index";
+}
+
+if (is_msaa_element and (msaa_state == undefined or (invisible and not offscreen))) {
+    // should be ignored per https://learn.microsoft.com/en-us/windows/win32/winauto/object-state-constants
+    recurse: false;
+}
+
+// List children of containers
+if (role.(filler or internal_frame or panel or html_container or
+              layered_pane or option_pane or root_pane or scroll_pane or
+              split_pane or table_cell or toolbar or
+              viewport or embedded or document_frame or
+              section or page or form or table_row or document_web or grouping
+              or info_bar or page_tab or page_tab_list or menu_bar or menu or
+              combo_box or menu_item or pane or group or document or tree_table or
+              toggle_button or list_box or list or table or title_bar or
+              tree or custom or header)) {
+    recurse: true;
+}
+
+tree_item (expanded) {
+    recurse: true;
+}
+
+if (spi_role.(table or tree_table) and spi_application.toolkit_name == "gtk" and recurse) {
+    // GTK tables do not send update events for children
+    poll_children: true;
+}
+
+if (is_spi_element and spi_application.toolkit_name == "Qt" and recurse) {
+    // Qt on AT-SPI2 doesn't seem to send tree update events
+    poll_children: true;
+}
+
+if (is_uia_element and uia_control_type == undefined and msaa_role.(border or client)) {
+    // Origin client has a lot of elements like this
+    recurse: true;
+}
+
+if (is_uia_element and uia_control_type.custom and msaa_role.(push_button or client)) {
+    // EA App has container controls that look like this
+    recurse: true;
+}
+
+if ((text or list_item) and ancestor_matches(document)) {
+    // These might contain just about anything in web views
+    recurse: true;
+}
+
+// Required to determine when a combo box is open in Qt
+list (parent.spi_role.combo_box and spi_application.toolkit_name == "Qt")
+{
+    recurse: true;
+}
+
+window (uia_class_name == "ApplicationFrameWindow" or uia_framework_id == "XAML") {
+    application_supports_gamepad: true;
+}
+
+window (framework_id == "Slate") { // Unreal Engine's GUI toolkit
+    application_supports_gamepad: true;
+}
+
+if (application_supports_gamepad) {
+    interactable: false;
+    toplevel_interactable: false;
+}
+
+if (root.supported_only and toplevel_interactable and not supported) {
+    interactable: false;
+}
+
+if (toplevel_interactable or is_active_modal) {
+    deepest_modal: descendent_matches(is_active_modal).deepest_modal or this;
+}
+
+root (descendent_matches(disable_interactions))
+{
+    disable_interactions: true;
+}
+
+if (toplevel_interactable and not root.disable_interactions and deepest_modal == this and
+    not root.current_view) {
+    interactable: true;
+}
+
+if (is_active_modal and not root.disable_interactions and root.current_view == this) {
+    interactable: true;
+}
+
+// We normally should only consider the active window when searching for controls to interact with
+if (active and visible and
+    (window or parent.(spi_role.application or is_root)) and // regular controls can be active
+    not root.in_panel_mode) {
+    toplevel_interactable: true;
+    recurse: true;
+}
+
+// Recursive navigation
+
+descend_action: this.assign("is_current_view", true);
+
+if (is_current_view) {
+    is_active_modal: true;
+    targetable: false;
+}
+
+root {
+    current_view: descendent_matches(toplevel_interactable and deepest_modal.is_current_view).deepest_modal;
+    scroll_current_view_action: wrap_current_view_action(current_view.scroll_view_action);
+    adjust_current_view_action: wrap_current_view_action(current_view.adjust_value_action);
+    adjust_current_view_left_action: wrap_current_view_action(current_view.adjust_value_left_action);
+    adjust_current_view_down_action: wrap_current_view_action(current_view.adjust_value_down_action);
+    adjust_current_view_up_action: wrap_current_view_action(current_view.adjust_value_up_action);
+    adjust_current_view_right_action: wrap_current_view_action(current_view.adjust_value_right_action);
+    ascend_action: wrap_current_view_action(current_view.assign("is_current_view", false));
+}
+
+// Panels
+if (is_panel and (root.in_panel_mode or root.panels_always_on)) {
+    toplevel_interactable: true;
+}
+
+if (root.panels_always_on and ancestor_matches(is_panel)) {
+    target_priority_important: -1;
+}
+
+root (descendent_matches(is_panel) and not disable_interactions) {
+    if (descendent_matches(active and application_supports_gamepad) and not in_panel_mode) {
+        // We have to deactivate the application to not double gamepad input.
+        toggle_panel_action: assign("activate_on_dismiss_panel", descendent_matches(active)) +
+            assign("in_panel_mode", true) +
+            descendent_matches(is_panel).set_foreground_window;
+    }
+    if (in_panel_mode and activate_on_dismiss_panel.set_foreground_window) {
+        toggle_panel_action: assign("activate_on_dismiss_panel", undefined) +
+            assign("in_panel_mode", false) +
+            activate_on_dismiss_panel.set_foreground_window;
+    }
+    toggle_panel_action: assign("activate_on_dismiss_panel", undefined) + assign("in_panel_mode", not in_panel_mode);
+}
+
+root (not in_panel_mode)
+{
+    enter_panel_action: toggle_panel_action;
+}
+
+root (in_panel_mode) {
+    exit_panel_action: toggle_panel_action;
+}
+
+root (targeted_element and in_panel_mode) {
+    // Do not reactivate original window, because interacting with the panel is likely to do that
+    target_select_action: targeted_element.primary_action + assign("activate_on_dismiss_panel", undefined) + assign("in_panel_mode", false);
+    action_name_A: targeted_element.primary_action_name or "Select";
+}
+
+if (is_spi_element and parent.spi_role.application and spi_attributes.window_type == "dock") {
+    is_panel: true;
+}
+
+if (is_uia_element and uia_class_name == "Shell_TrayWnd") {
+    is_panel: true;
+}
+
+if (uia_control_type.window) {
+    // In UI Automation, "owned" windows (usually dialog boxes) are children of the "owner" window.
+    // We don't want to try to interact with controls in these windows when the owner is the foreground window.
+    interactable: false;
+}
+
+// We'd need an unbroken chain of enabled/visible controls from the active window to interact with
+// a control through the mouse and keyboard, so normally we should only consider those. AT-SPI may
+// let us do things with other controls, but it might be confusing or break applications.
+if (is_spi_element and enabled and sensitive and not parent.stop_interactable and
+    (showing or (spi_application.toolkit_name == "gtk" and not parent.page_tab)) and // GTK doesn't reliably update showing state of child controls when a scrollable pane is scrolled
+        // https://gitlab.gnome.org/GNOME/gtk/-/issues/5511
+    (visible or spi_application.toolkit_name == "Qt") and // Qt doesn't reliably set visible for some reason (or notify about it?)
+    parent.interactable) {
+
+    // Qt combo boxes have a structure like this: tool_bar(text, combo_box(list, text))
+    // That is, the text is duplicated. We want to ignore the extra text box that is outside the combo_box in the tree.
+    text (spi_application.toolkit_name == "Qt" and parent.spi_role.tool_bar and next_sibling.spi_role.combo_box and
+        next_sibling.child_matches(text).spi_path == spi_path) {
+        interactable: false;
+    }
+
+    interactable: true;
+}
+
+page_tab (is_spi_element and spi_application.toolkit_name == "gtk") {
+    // GTK: Page tabs have the sensitive state only when there is more than one tab, but descendents
+    // can still be used. Worse, GTK does not send notifications when the sensitive state updates, so
+    // we can't really use it.
+
+    sensitive: true;
+
+    if (parent.child_count == 1) {
+        targetable: false;
+    }
+}
+
+if (not is_spi_element and parent.interactable and enabled and visible and not parent.stop_interactable) {
+    interactable: true;
+}
+
+// manual_buttons hack
+if (parent.manual_buttons) {
+    manual_buttons: true;
+}
+
+// manual_checkboxes hack
+if (parent.manual_checkboxes) {
+    manual_checkboxes: true;
+}
+
+if (uia_control_type.hyperlink and toolkit == "Qt" and ancestor_matches(uia_control_type.document)) {
+	// uia_invoke doesn't seem to work for links in Qt web views
+    manual_buttons: true;
+}
+
+if (parent.offset_target_x) {
+    offset_target_x: parent.offset_target_x;
+}
+
+if (parent.offset_target_y) {
+    offset_target_y: parent.offset_target_y;
+}
+
+if (class_name == "msctls_trackbar32" and not is_hwnd_element and ancestor_matches(toplevel_interactable)) {
+    win32_use_trackbar: ancestor_matches(toplevel_interactable);
+    targetable: false;
+}
+
+// Scroll panes
+scroll_pane (child_matches(scroll_bar and enabled and sensitive and showing and visible)) {
+    // GTK scrollable pane
+    scrollable: true;
+    no_scrollable_fallback: true;
+
+    hscroll: child_matches(scroll_bar and horizontal and enabled and sensitive and showing and visible);
+    vscroll: child_matches(scroll_bar and vertical and enabled and sensitive and showing and visible);
+
+    scroll_view_action: adjust_scrollbars(hscroll, vscroll);
+
+    if (interactable) {
+        // Do this lazily so we're not polling positions of all scroll panes
+        scroll_target_margin: 0;
+
+        scroll_pane_x: x;
+        scroll_pane_y: y;
+        scroll_pane_width: width;
+        scroll_pane_height: height;
+
+        scroll_view_x: x;
+        scroll_view_y: y;
+        scroll_view_width: width - (vscroll.width or 0);
+        scroll_view_height: height - (hscroll.height or 0);
+    }
+}
+
+filler ((child_count == 2 or child_count == 3) and
+        first_child.(filler and child_count == 1 and first_child.filler) and
+        child_at_index(1).(filler and child_count == 1 and first_child.scroll_bar) and
+        last_child.(filler and child_count == 1 and first_child.scroll_bar))
+{
+    // Qt scrollable pane
+    scrollable: true;
+    no_scrollable_fallback: true;
+
+    // horizontal and vertical states are not set
+    hscroll: child_matches(first_child.scrollbar and x == parent.x).first_child;
+    vscroll: child_matches(first_child.scrollbar and y == parent.y).first_child;
+
+    scroll_view_action: adjust_scrollbars(hscroll, vscroll);
+
+    if (interactable) {
+        // Do this lazily so we're not polling positions of all scroll panes
+        scroll_target_margin: 0;
+
+        scroll_pane_x: x;
+        scroll_pane_y: y;
+        scroll_pane_width: width;
+        scroll_pane_height: height;
+
+        scroll_view_x: x;
+        scroll_view_y: y;
+        scroll_view_width: first_child.width;
+        scroll_view_height: first_child.height;
+    }
+}
+
+scroll_bar (automation_id == "NonClientVerticalScrollBar" or automation_id == "NonClientHorizontalScrollBar" or
+    class_name == "ScrollBar") {
+    // standard win32 scrollbars seem to work best by invoking the thumb buttons, so we need to see the buttons
+    recurse: true;
+    stop_interactable: true;
+
+    if (child_matches(automation_id == "UpButton") and child_matches(automation_id == "DownButton")) {
+        is_win32_scroll_bar: true;
+        up_action: child_matches(automation_id == "UpButton").uia_invoke;
+        down_action: child_matches(automation_id == "DownButton").uia_invoke;
+    }
+}
+
+if (uia_adjust_scroll_container and framework_id == "Win32" and
+    child_matches(is_win32_scroll_bar and (automation_id == "NonClientVerticalScrollBar" or automation_id == "NonClientHorizontalScrollBar")))
+{
+    // UI Automation does a poor job with standard scrollbars, use scroll wheel instead.
+    scrollable: true;
+    no_scrollable_fallback: true;
+
+    hscroll: child_matches(scroll_bar and automation_id == "NonClientHorizontalScrollBar");
+    vscroll: child_matches(scroll_bar and automation_id == "NonClientVerticalScrollBar");
+
+    scroll_view_action: send_scroll;
+
+    if (interactable) {
+        scroll_target_margin: 0;
+
+        scroll_pane_x: x;
+        scroll_pane_y: y;
+        scroll_pane_width: width;
+        scroll_pane_height: height;
+
+        scroll_view_x: x;
+        scroll_view_y: y;
+        scroll_view_width: width - (vscroll.width or 0);
+        scroll_view_height: height - (hscroll.height or 0);
+    }
+}
+
+if (uia_adjust_scroll_container) {
+    scrollable: true;
+    no_scrollable_fallback: true;
+    scroll_view_action: uia_adjust_scroll_container;
+
+    if (interactable) {
+        scroll_target_margin: 0;
+
+        scroll_pane_x: x;
+        scroll_pane_y: y;
+        scroll_pane_width: width;
+        scroll_pane_height: height;
+
+        scroll_view_x: x;
+        scroll_view_y: y;
+        scroll_view_width: width - (child_matches(scroll_bar and vertical).width or 0);
+        scroll_view_height: height - (child_matches(scroll_bar and horizontal).height or 0);
+    }
+}
+
+if (not no_scrollable_fallback and interactable and child_count != 0 and
+    child_matches(scroll_bar and interactable and (
+        (horizontal and y + height - parent.(y + height) > -5) or
+        (vertical and x + width - parent.(x + width) > -5)))) {
+    // Fallback: Element has scrollbars close to edge
+    scrollable: true;
+    
+    hscroll: child_matches(scroll_bar and interactable and horizontal and y + height - parent.(y + height) > -5);
+    vscroll: child_matches(scroll_bar and interactable and vertical and x + width - parent.(x + width) > -5);
+
+    scroll_view_action: adjust_scrollbars(hscroll, vscroll);
+
+    scroll_target_margin: 0;
+
+    scroll_pane_x: x;
+    scroll_pane_y: y;
+    scroll_pane_width: width;
+    scroll_pane_height: height;
+
+    if (hscroll.is_nonclient_scrollbar or vscroll.is_nonclient_scrollbar) {
+        scroll_view_x: client_x;
+        scroll_view_y: client_y;
+        scroll_view_width: client_width;
+        scroll_view_height: client_height;
+    }
+
+    scroll_view_x: x;
+    scroll_view_y: y;
+    scroll_view_width: width - (vscroll.width or 0);
+    scroll_view_height: height - (hscroll.height or 0);
+}
+
+if (scrollbar and vertical and this == parent.vscroll and
+    parent.descendent_matches(targeted).x < x) {
+	// Allow right movement from control in scrollable view to vertical scrollbar
+	target_right_candidate: true;
+	target_up_candidate: false;
+	target_down_candidate: false;
+	target_left_candidate: false;
+}
+
+if (not (scrollbar and horizontal and this == parent.hscroll) and
+    ancestor_matches(vscroll.targeted).vscroll.x > x) {
+    // Allow left movement from vertical scrollbar to control in scrollable view
+    target_left_candidate: true;
+    target_right_candidate: false;
+    target_up_candidate: false;
+    target_down_candidate: false;
+}
+
+if (scrollbar and horizontal and this == parent.hscroll and
+    parent.descendent_matches(targeted).y < y) {
+	// Allow down movement from control in scrollable view to horizontal scrollbar
+	target_right_candidate: false;
+	target_up_candidate: false;
+	target_down_candidate: true;
+	target_left_candidate: false;
+}
+
+if (not (scrollbar and vertical and this == parent.vscroll) and
+    ancestor_matches(hscroll.targeted).hscroll.y > y) {
+    // Allow up movement from horizontal scrollbar to control in scrollable view
+    target_left_candidate: false;
+    target_right_candidate: false;
+    target_up_candidate: true;
+    target_down_candidate: false;
+}
+
+// Prefer to target elements in the current scrollable view
+if (targetable and is_descendent_of(root.targeted_view)) {
+    if (this == root.targeted_view.hscroll or this == root.targeted_view.vscroll) {
+		target_priority_important: 1;
+    }
+    target_priority_important: 2;
+}
+
+// Rules for setting borders of targetable elements
+if (targetable or valid_target or is_current_view) {
+    // "special" rules would go here
+
+    toggle_button (expandable) {
+        // Adjust size so we don't overlap descendents
+        if (first_child.(showing and abs_y) and first_child.abs_y > y) {
+            target_height: first_child.abs_y - abs_y;
+        }
+    }
+
+    split_pane (horizontal and child_count == 2) {
+        // Adjust size to be only the split
+        target_x: first_child.(x + width);
+        target_width: width - first_child.width - last_child.width;
+    }
+
+    split_pane (vertical and child_count == 2) {
+        // Adjust size to be only the split
+        target_y: first_child.(y + height);
+        target_height: height - first_child.height - last_child.height;
+    }
+
+    if (is_spi_element) {
+        // AT-SPI2 makes it practically impossible to monitor a control's position without polling. We get
+        // no notification of window movement. Calling GetExtents with ATSPI_COORD_TYPE_PARENT consistently
+        // gives screen coordinates. The BoundsChanged notification seems to give window-relative coordinates,
+        // but it doesn't do this consistently and doesn't always fire when window-relative coordinates change.
+
+        // If there are any specific cases where it's possible to do this better, we can add them here.
+
+        // Absolute screen coordinates
+        target_x: abs_x + (offset_target_x or 0);
+        target_y: abs_y + (offset_target_y or 0);
+
+        // For some reason, Qt often returns incorrect values when querying width or height in any
+        // coordinate space other than screen. Since we're already polling for absolute position,
+        // it doesn't make much sense to gate this behavior on toolkit.
+        target_width: spi_abs_width;
+        target_height: spi_abs_height;
+    }
+
+    if (is_uia_element or is_win32_element or is_win32_subelement or is_hwnd_element or is_hwnd_subelement or is_msaa_element) {
+        target_x: x + (offset_target_x or 0);
+        target_y: y + (offset_target_y or 0);
+        target_width: width;
+        target_height: height;
+    }
+}
+
+root {
+    cancel_action: descendent_matches(cancel_action).cancel_action;
+    tab_left_action: descendent_matches(tab_left_action).tab_left_action;
+    tab_right_action: descendent_matches(tab_right_action).tab_right_action;
+    menu_open_action: descendent_matches(menu_open_action).menu_open_action;
+    confirm_action: descendent_matches(confirm_action).confirm_action;
+}
+
+root (targeted_view and
+    (not targeted_element or
+        (targeted_element.is_descendent_of(targeted_view) and
+            not targeted_element.ancestor_matches(scrollable))) and
+    targeted_view.(hscroll.targetable or vscroll.targetable)) {
+    // Keep track of this when we lose the target
+    targeted_view: targeted_view;
+}
+
+root (targeted_element) {
+    target_primary_action: targeted_element.primary_action;
+    target_secondary_action: targeted_element.secondary_action;
+    target_context_menu_action: targeted_element.context_menu_action;
+    target_scroll_view_action: targeted_element.scroll_view_action;
+    target_adjust_value_action: targeted_element.adjust_value_action;
+    target_adjust_value_left_action: targeted_element.adjust_value_left_action;
+    target_adjust_value_down_action: targeted_element.adjust_value_down_action;
+    target_adjust_value_up_action: targeted_element.adjust_value_up_action;
+    target_adjust_value_right_action: targeted_element.adjust_value_right_action;
+    targeted_view: targeted_element.ancestor_matches(scrollable);
+}
+
+root (targeted_view) {
+    scroll_targeted_view_action: targeted_view.scroll_view_action;
+}
+
+// Rules that apply to controls in the active window
+combo_box (not (uia_expand_collapse_state.leaf_node or simple)) {
+    valid_target: true;
+
+    primary_action: spi_action.(press or Press) or uia_expand or uia_invoke or do_default_action;
+    primary_action_name: "Select";
+
+    if (child_matches(text_box)) {
+        secondary_action: child_matches(text_box).(focusable and set_focus or send_click)+show_keyboard;
+        secondary_action_name: "Show Keyboard";
+    }
+}
+
+if ((scroll_bar or slider) and not (is_win32_element or is_win32_subelement or spi_state.(vertical or horizontal) or uia_orientation)) {
+    // Qt doesn't set these states
+    vertical: height > width;
+    horizontal: width > height;
+}
+
+scroll_bar (is_win32_scroll_bar) {
+    adjust_value_action: send_scroll;
+}
+
+if ((scroll_bar or slider or split_pane) and vertical) {
+    valid_target: true;
+
+    adjust_value_action: adjust_scrollbars(undefined, this);
+
+    adjust_value_down_action: focusable and (set_focus+send_key.down) or adjust_value(minimum_increment or 25);
+    adjust_value_up_action: focusable and (set_focus+send_key.up) or adjust_value(-(minimum_increment or 25));
+}
+
+if (is_hwnd_trackbar) {
+    // set_focus + send_key doesn't work for these for some reason
+    valid_target: true;
+
+    adjust_value_action: adjust_scrollbars(this, undefined);
+
+    adjust_value_left_action: adjust_value(-(minimum_increment or 25));
+    adjust_value_right_action: adjust_value(minimum_increment or 25);
+}
+
+if ((scroll_bar or slider or split_pane) and horizontal) {
+    valid_target: true;
+
+    adjust_value_action: adjust_scrollbars(this, undefined);
+
+    adjust_value_left_action: focusable and (set_focus+send_key.left) or adjust_value(-(minimum_increment or 25));
+    adjust_value_right_action: focusable and (set_focus+send_key.right) or adjust_value(minimum_increment or 25);
+}
+
+spin_button {
+    recurse: true;
+
+    valid_target: not child_matches(button);
+
+    primary_action: (focusable and set_focus or send_click)+show_keyboard;
+
+    adjust_value_action: adjust_scrollbars(this, undefined);
+
+    adjust_value_left_action: set_focus+send_key.left;
+    adjust_value_right_action: set_focus+send_key.right;
+}
+
+column_header {
+    valid_target: true;
+}
+
+// GTK menus
+menu (is_spi_element) {
+    valid_target: true;
+}
+
+// Qt/AT-SPI2 does its menu bars this way
+menu_item (parent.spi_role.menu_bar and spi_action.ShowMenu)
+{
+    valid_target: true;
+
+    primary_action: spi_action.ShowMenu;
+    primary_action_name: "Click";
+}
+
+// UI Automation menu
+menu_item (is_uia_element and parent.menu_bar)
+{
+    valid_target: true;
+
+    primary_action: uia_invoke or msaa_do_default_action;
+    primary_action_name: "Click";
+}
+
+page_tab {
+    valid_target: true;
+    primary_action: spi_action.Press or select;
+    primary_action_name: "Select Tab";
+}
+
+if ((button or radio_button or hyperlink) and manual_buttons)
+{
+    valid_target: true;
+    primary_action: send_click;
+    primary_action_name: "Click";
+}
+
+if (button or radio_button or hyperlink) {
+    valid_target: true;
+}
+
+check_box (manual_checkboxes) {
+    valid_target: true;
+    primary_action: send_click;
+    primary_action_name: "Toggle";
+}
+
+if (uia_control_type.check_box) {
+    valid_target: true;
+    primary_action: uia_invoke or msaa_do_default_action;
+    primary_action_name: "Toggle";
+}
+
+if (edit or
+    (is_uia_element and uia_control_type.document and not first_child)) { // Qt web controls show up as document but aren't really editable
+    valid_target: true;
+    if (is_uia_element and acc2_toolkit_name == "Qt" and ancestor_matches(uia_control_type.document)) {
+        // set_focus doesn't seem to work for Qt web views
+        primary_action: send_click+show_keyboard;
+    }
+    primary_action: (focusable and set_focus or send_click)+show_keyboard;
+    primary_action_name: "Show Keyboard";
+}
+
+// Tab bar navigation
+
+// GTK2: Sometimes the initially selected tab does not have the selected state.
+page_tab (spi_application.toolkit_name == "GAIL" and child_matches(spi_state.showing)) {
+    selected: true;
+}
+
+// Qt/AT-SPI2: The selected state is not set, but we can infer it using the sibling layered_pane
+page_tab (spi_application.toolkit_name == "Qt" and
+    parent.spi_role.page_tab_list and
+    parent.parent.spi_role.filler and
+    parent.first_sibling.spi_role.layered_pane and
+    parent.first_sibling.child_at_index(index_in_parent).spi_state.showing) {
+    selected: true;
+}
+
+if (interactable) {
+    page_tab (previous_sibling_matches(interactable).(page_tab and selected)) {
+        tab_right_action: primary_action or send_click;
+        tab_right_action_name: spi_name;
+    }
+    page_tab (next_sibling_matches(interactable).(page_tab and selected)) {
+        tab_left_action: primary_action or send_click;
+        tab_left_action_name: spi_name;
+    }
+
+    menu_bar (child_matches(primary_action and (uia_name != "System" or width != height)))
+    {
+        menu_open_action: child_matches(primary_action and (uia_name != "System" or width != height)).primary_action;
+        menu_open_action_name: "Open Menu";
+    }
+
+    button (default or name == "OK" or name == "Run" or name == "Play" or name == "PLAY" or name == "Yes")
+    {
+        confirm_action: primary_action or send_click;
+        confirm_action_name: name;
+    }
+
+    button (name == "Cancel" or (name == "Close" and not parent.title_bar) or name == "No")
+    {
+        cancel_action: primary_action or send_click;
+        cancel_action_name: name;
+    }
+}
+
+toggle_button {
+    valid_target: true;
+}
+
+table_cell (parent.table_cell) {
+    // Table cells in GTK can have child table cells that intersect the scrollbar
+    // This is a problem for target navigation as it leads to up/down moving from list items to scrollbar
+
+    targetable: false;
+}
+
+if (is_hwnd_listview_item and recurse_method != "win32_listview_cell") {
+    valid_target: true;
+    if (parent.checkboxes) {
+        primary_action: toggle_checked;
+        secondary_action: send_click;
+    }
+}
+
+if (is_hwnd_listview_cell) {
+    valid_target: true;
+    if (index_in_parent == 0 and parent.parent.checkboxes) {
+        primary_action: parent.toggle_checked;
+        secondary_action: send_click;
+    }
+}
+
+if (is_hwnd_button and not frame)
+{
+    valid_target: true;
+}
+
+if ((table_cell or table_row or list_item) and targetable) {
+    if (expandable and spi_action("expand or contract")) {
+        secondary_action: spi_action("expand or contract");
+    }
+
+    // Actions on table cells don't always do anything
+    primary_action: send_click;
+    secondary_action: send_click + send_click;
+}
+
+if (role.(group or panel or frame)) {
+    valid_target: false;
+}
+
+if (focusable and not descendent_matches(targetable or valid_target)) {
+    // A control being focusable is a good hint that it's something to click on
+    valid_target: true;
+}
+
+if (spi_action.menu) {
+    context_menu_action: spi_action.menu;
+}
+
+table_cell (ancestor_matches(file_chooser)) {
+    // GTK file chooser does not respond to "activate" on table cells
+    primary_action: send_click;
+}
+
+if (is_spi_element != false)
+{
+    // This ignores the old Uia backend
+    if (do_default_action) {
+        primary_action: do_default_action;
+    }
+}
+
+if (spi_action.(click or Press or activate or toggle or Toggle)) {
+    primary_action: spi_action.(click or Press or activate or toggle or Toggle);
+}
+
+if (adjust_value_action) {
+    primary_action: descend_action;
+}
+
+if (valid_target and interactable) {
+    if (ancestor_matches(toplevel_interactable) and
+        (target_x + target_width <= ancestor_matches(toplevel_interactable).x or 
+         target_y + target_height <= ancestor_matches(toplevel_interactable).y or
+         target_x >= ancestor_matches(toplevel_interactable).(x + width) or
+         target_y >= ancestor_matches(toplevel_interactable).(y + height)))
+    {
+        // Outside the bounds of parent window
+        targetable: false;
+    }
+
+    targetable: true;
+}

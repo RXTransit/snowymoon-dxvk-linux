@@ -1,0 +1,20 @@
+{
+    "file_format_version" : "1.1.2",
+    "layer" : {
+        "name": "VK_LAYER_pyroveil",
+        "type": "GLOBAL",
+        "library_path": "libVkLayer_pyroveil_64.so",
+        "api_version": "1.4.308",
+        "implementation_version": "1",
+        "description": "Pyroveil shader hacking layer",
+        "functions": {
+            "vkNegotiateLoaderLayerInterfaceVersion" : "VK_LAYER_PYROVEIL_vkNegotiateLoaderLayerInterfaceVersion"
+        },
+        "enable_environment": {
+            "PYROVEIL": "1"
+        },
+        "disable_environment": {
+            "DISABLE_PYROVEIL": "1"
+        }
+    }
+}
