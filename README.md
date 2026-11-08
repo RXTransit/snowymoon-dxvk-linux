@@ -77,7 +77,6 @@ Do not distribute Valve's Proton files as part of this repository.
 ## Important notes
 
 - This repository records the source changes and build configuration.
-- It does not contain the complete Proton distribution.
 - Snowymoon's own files may need to be downloaded separately from
   https://snowymoon.io/
 - Keep track of the upstream DXVK revision used for each build.
